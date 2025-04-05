@@ -1,0 +1,15 @@
+export enum MESSAGE_CONTENT {
+    DEFAULT_ERROR = 'Something went wrong! Please try again',
+    LOGIN_SUCCESS_TITLE = 'Successfully login',
+    LOGIN_ERROR = 'Error when login',
+    LOGIN_SUCCESS_DESCRIPTION = 'You have login successfully.',
+    FORGET_PASSWORD_ERROR = 'Error verification code',
+    RESET_PASSWORD_ERROR = 'Error reset password',
+    RESET_PASSWORD_SUCCESS_TITLE = 'Successfully reset password',
+    RESET_PASSWORD_SUCCESS_DESCRIPTION = 'Your password is successfully reset!',
+    RESEND_VERIFICATION_CODE_SUCCESS_TITLE = 'Successfully resend verification code',
+    RESEND_VERIFICATION_CODE_DESCRIPTION = 'We have sent another code to ',
+    RESEND_VERIFICATION_CODE_ERROR_TITLE = 'Error resend verification code',
+    DELETE_SUCCESS_TITLE = 'Successfully delete',
+    DELETE_SUCCESS_DESCRIPTION = 'You have delete successfully.',
+}
