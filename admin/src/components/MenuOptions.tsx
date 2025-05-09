@@ -9,12 +9,12 @@ interface MenuOptionsProps {
 }
 type MenuItem = Required<MenuProps>['items'][number];
 
-const MenuOptions: React.FC<MenuOptionsProps> = ({ email, onViewInfo, onLogout }) => {
+const MenuOptions: React.FC<MenuOptionsProps> = ({ email, onLogout, onChangePassword }) => {
     const handleClick: MenuProps['onClick'] = (e) => {
-        if (e.key === 'view-info' && onViewInfo) {
-            onViewInfo();
-        } else if (e.key === 'logout' && onLogout) {
+        if (e.key === 'logout' && onLogout) {
             onLogout();
+        } else if(e.key === 'change-password' && onChangePassword) {
+            onChangePassword()
         }
     };
 
@@ -25,8 +25,8 @@ const MenuOptions: React.FC<MenuOptionsProps> = ({ email, onViewInfo, onLogout }
             label: email || 'User',
             children: [
                 {
-                    key: 'view-info',
-                    label: 'View Information User',
+                    key:'change-password',
+                    label: 'Change Password'
                 },
                 {
                     key: 'logout',
@@ -34,6 +34,7 @@ const MenuOptions: React.FC<MenuOptionsProps> = ({ email, onViewInfo, onLogout }
                     label: 'Log Out',
                     danger: true,
                 },
+
             ],
         },
     ];

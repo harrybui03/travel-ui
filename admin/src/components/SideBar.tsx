@@ -8,7 +8,7 @@ import {
     AppstoreOutlined,
     GlobalOutlined,
     MenuFoldOutlined,
-    MenuUnfoldOutlined,
+    MenuUnfoldOutlined, CaretUpOutlined, DollarOutlined,
 } from "@ant-design/icons";
 
 const SideBar = () => {
@@ -46,6 +46,15 @@ const SideBar = () => {
                 </Menu.Item>
                 <Menu.Item key="manage-destinations" icon={<GlobalOutlined />}>
                     <Link to="/dashboard/manage-destinations">Manage destinations</Link>
+                </Menu.Item>
+                <Menu.Item key="manage-employees" icon={<GlobalOutlined />}>
+                    <Link to="/dashboard/manage-employees">Manage employees</Link>
+                </Menu.Item>
+                <Menu.Item key="assign-tour" icon={<CaretUpOutlined />}>
+                    <Link to="/dashboard/assign-tour">Assign Tour for Tour Guides</Link>
+                </Menu.Item>
+                <Menu.Item key="tour-statistics" icon={<DollarOutlined />}>
+                    <Link to="/dashboard/tour-statistics">Tour Statistics</Link>
                 </Menu.Item>
             </Menu>
         </div>

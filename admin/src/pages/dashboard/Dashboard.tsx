@@ -6,10 +6,10 @@ import {Outlet} from "react-router-dom";
 export const DashboardLayout = () => (
     <div className="dashboard-layout">
         <Header />
-        <div className="dashboard-content">
+        <div className="dashboard-content flex">
             <SideBar />
-            <main className="main-area">
-                <Outlet /> {}
+            <main className="main-area flex-1">
+                <Outlet /> {/* Add Outlet here */}
             </main>
         </div>
         <Footer />

@@ -51,4 +51,34 @@ export const useAuthStore = create<AuthState>((set) => ({
             set({ error: err.message, loading: false });
         }
     },
+
+    changePassword: async (newPassword) => {
+        set({ loading: true, error: null });
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: newPassword,
+            });
+            if (error) {
+                throw new Error(error.message);
+            }
+            set({ loading: false });
+        } catch (err: any) {
+            set({ error: err.message, loading: false });
+        }
+    },
+
+    verifyPassword: async (email, password) => {
+        set({ loading: true, error: null });
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+            set({ loading: false, error: null });
+            return !error;
+        } catch (err: any) {
+            set({ error: err.message, loading: false });
+            return false;
+        }
+    },
 }));

@@ -73,7 +73,7 @@ export default function LoginPage() {
                         </Form.Item>
 
                         <Typography className="max-w-xs text-sm" style={{ color: '#4B5563' }}>
-                            If you do not have an account, please contact Admin to request access.
+                            Don't have account? <a href="">Sign up?</a>
                         </Typography>
 
                         <Form.Item>
