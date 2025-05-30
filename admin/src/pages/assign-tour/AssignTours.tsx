@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
+import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Select, Button, Modal, Tag, List } from 'antd';
-import { UserOutlined, CalendarOutlined, TeamOutlined, GlobalOutlined, DollarCircleOutlined, InfoCircleOutlined, PlusCircleOutlined } from '@ant-design/icons'; // Added PlusCircleOutlined
+import { UserOutlined, CalendarOutlined, TeamOutlined, GlobalOutlined, DollarCircleOutlined, InfoCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from "axios";
@@ -8,21 +8,31 @@ import moment from 'moment';
 
 const { Option } = Select;
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = 'http://localhost:8080/api'; // Ensure this is your correct API base URL
 
 const AssignTours = () => {
     const [tours, setTours] = useState([]);
     const [allTourGuides, setAllTourGuides] = useState([]);
     const [selectedTourSchedule, setSelectedTourSchedule] = useState(null);
-    // guidesToAssign will now store only the NEWLY selected guides from the dropdown
-    const [guidesToAssign, setGuidesToAssign] = useState([]);
+    const [guidesToAssign, setGuidesToAssign] = useState([]); // Stores NEWLY selected guide IDs from dropdown
     const [loading, setLoading] = useState(false);
     const [isAssignModalVisible, setIsAssignModalVisible] = useState(false);
-    const [assignmentSuccess, setAssignmentSuccess] = useState(false);
+    const [assignmentSuccess, setAssignmentSuccess] = useState(false); // Used to trigger re-fetch
 
     function convertApiTourSchedules(apiSchedules) {
+        if (!Array.isArray(apiSchedules)) {
+            console.error('convertApiTourSchedules expected an array but received:', apiSchedules);
+            toast.error('Failed to load tour schedules: unexpected data format from server.');
+            return []; // Return an empty array to prevent further errors
+        }
+
         return apiSchedules.map((apiSchedule) => {
-            const parentTourData = apiSchedule.tour ? {
+            if (!apiSchedule || typeof apiSchedule !== 'object') {
+                console.warn('Skipping invalid schedule item in API response:', apiSchedule);
+                return null; // This item will be filtered out later
+            }
+
+            const parentTourData = apiSchedule.tour && typeof apiSchedule.tour === 'object' ? {
                 id: apiSchedule.tour.id,
                 tourName: apiSchedule.tour.tourName,
                 transportation: apiSchedule.tour.transportation,
@@ -30,14 +40,17 @@ const AssignTours = () => {
                 description: apiSchedule.tour.description,
                 price: apiSchedule.tour.price,
                 tourDuration: apiSchedule.tour.tourDuration,
-                destinations: apiSchedule.tour.destinations?.map(dest => ({ ...dest })) || []
             } : null;
 
             return {
                 id: apiSchedule.id,
                 startDate: apiSchedule.departureDate ? moment(apiSchedule.departureDate) : null,
                 endDate: apiSchedule.returnDate ? moment(apiSchedule.returnDate) : null,
-                currentlyAssignedGuideIds: apiSchedule.tourGuides?.map(guide => guide?.id).filter(id => id != null) || [],
+                currentlyAssignedGuideIds: Array.isArray(apiSchedule.tourGuides)
+                    ? apiSchedule.tourGuides
+                        .map(tgWrapper => tgWrapper?.tourGuide?.id)
+                        .filter(id => id != null)
+                    : [],
                 parentTour: parentTourData,
                 display_name: parentTourData?.tourName || `Schedule ID: ${apiSchedule.id}`,
                 tour_name: parentTourData?.tourName || 'N/A',
@@ -45,18 +58,33 @@ const AssignTours = () => {
                 max_customer: parentTourData?.maxCustomer || 'N/A',
                 description: parentTourData?.description || 'No description available.',
                 price: parentTourData?.price !== null && parentTourData?.price !== undefined ? parentTourData.price : 'N/A',
-                destinationsFromTour: parentTourData?.destinations || [],
+                destinations: Array.isArray(apiSchedule.destination)
+                    ? apiSchedule.destination
+                        .map(d => d?.destination)
+                        .filter(Boolean) // Filter out null/undefined destination objects
+                    : [],
             };
-        });
+        }).filter(Boolean); // Filter out any null items from invalid apiSchedule objects
     }
 
     function convertApiAllTourGuides(apiTourGuides) {
-        return apiTourGuides.map((apiTourGuide) => ({
-            id: apiTourGuide.id,
-            name: apiTourGuide.fullname,
-            position: apiTourGuide.position || 'N/A',
-            email: apiTourGuide.email,
-        }));
+        if (!Array.isArray(apiTourGuides)) {
+            console.error('convertApiAllTourGuides expected an array but received:', apiTourGuides);
+            toast.error('Failed to load tour guides: unexpected data format from server.');
+            return [];
+        }
+        return apiTourGuides.map((apiTourGuide) => {
+            if (!apiTourGuide || typeof apiTourGuide !== 'object') {
+                console.warn('Skipping invalid tour guide item in API response:', apiTourGuide);
+                return null;
+            }
+            return {
+                id: apiTourGuide.id,
+                name: apiTourGuide.fullname,
+                position: apiTourGuide.position || 'N/A',
+                email: apiTourGuide.email,
+            };
+        }).filter(Boolean); // Filter out any null items
     }
 
     const fetchInitialData = async () => {
@@ -66,10 +94,13 @@ const AssignTours = () => {
                 axios.get(`${API_URL}/assign/tours`),
                 axios.get(`${API_URL}/assign/tour-guides`),
             ]);
+
             const convertedSchedules = convertApiTourSchedules(schedulesResponse.data);
             setTours(convertedSchedules);
+
             const convertedAllGuides = convertApiAllTourGuides(allGuidesResponse.data);
             setAllTourGuides(convertedAllGuides);
+
         } catch (error) {
             console.error('Error fetching data:', error);
             const errorMessage = error.response?.data?.message || error.message || 'Failed to load initial data.';
@@ -81,12 +112,11 @@ const AssignTours = () => {
 
     useEffect(() => {
         fetchInitialData();
-    }, [assignmentSuccess]);
+    }, [assignmentSuccess]); // Re-fetch when assignmentSuccess changes
 
     const handleShowAssignModal = (tourSchedule) => {
         setSelectedTourSchedule(tourSchedule);
-        // Initialize guidesToAssign as empty, as dropdown is for NEW guides only
-        setGuidesToAssign([]);
+        setGuidesToAssign([]); // Reset for new assignment selection
         setIsAssignModalVisible(true);
     };
 
@@ -97,7 +127,6 @@ const AssignTours = () => {
     };
 
     const handleGuideSelectionChange = (selectedNewGuideIds) => {
-        // These are the IDs of the newly selected guides from the filtered dropdown
         setGuidesToAssign(selectedNewGuideIds);
     };
 
@@ -110,11 +139,10 @@ const AssignTours = () => {
         setLoading(true);
 
         const existingGuideIds = selectedTourSchedule.currentlyAssignedGuideIds || [];
-        // Combine existing guides with newly selected guides, ensuring uniqueness
         const finalGuideIds = [...new Set([...existingGuideIds, ...guidesToAssign])];
 
         const payload = {
-            id: selectedTourSchedule.parentTour.id,
+            id: selectedTourSchedule.parentTour.id, // Tour ID
             tourName: selectedTourSchedule.parentTour.tourName,
             transportation: selectedTourSchedule.parentTour.transportation,
             maxCustomer: selectedTourSchedule.parentTour.maxCustomer,
@@ -123,18 +151,18 @@ const AssignTours = () => {
             tourDuration: selectedTourSchedule.parentTour.tourDuration || null,
             tourSchedule: [
                 {
-                    id: selectedTourSchedule.id,
+                    id: selectedTourSchedule.id, // Schedule ID
                     departureDate: selectedTourSchedule.startDate ? selectedTourSchedule.startDate.toISOString() : null,
                     returnDate: selectedTourSchedule.endDate ? selectedTourSchedule.endDate.toISOString() : null,
-                    // Send the complete list (existing + new) to the backend
-                    tourGuides: finalGuideIds.map(guideId => ({ id: guideId }))
+                    tourGuides: finalGuideIds.map(guideId => ({
+                        tourSchedule: { id: selectedTourSchedule.id },
+                        tourGuide: { id: guideId }
+                    }))
                 }
             ]
         };
 
         try {
-            // Using the /assign/assign-tour-guide endpoint which expects the full tour-like structure
-            // and for the backend to replace the schedule's guides with the provided list.
             await axios.post(`${API_URL}/assign/assign-tour-guide`, payload);
 
             const finalAssignedGuideNames = finalGuideIds
@@ -145,11 +173,11 @@ const AssignTours = () => {
             if (finalAssignedGuideNames.length > 0) {
                 successMessage += ` Now assigned: ${finalAssignedGuideNames.join(', ')}.`;
             } else {
-                successMessage += ` All guides unassigned.`; // This case happens if existing were [] and new were []
+                successMessage += ` All guides unassigned.`;
             }
             toast.success(successMessage);
 
-            setAssignmentSuccess(prev => !prev);
+            setAssignmentSuccess(prev => !prev); // Trigger useEffect to re-fetch data
             handleHideAssignModal();
         } catch (error) {
             console.error('Assignment error:', error);
@@ -186,6 +214,7 @@ const AssignTours = () => {
             key: 'assigned_guides_list',
             dataIndex: 'currentlyAssignedGuideIds',
             render: (guideIds, record) => {
+                if (!Array.isArray(guideIds)) return <Tag color="red">Error</Tag>;
                 const assignedNames = guideIds
                     .map(id => allTourGuides.find(guide => guide.id === id)?.name)
                     .filter(Boolean);
@@ -231,13 +260,13 @@ const AssignTours = () => {
     ];
 
     const getCurrentlyAssignedGuideNamesInModal = () => {
-        if (!selectedTourSchedule || !selectedTourSchedule.currentlyAssignedGuideIds) return [];
+        if (!selectedTourSchedule || !Array.isArray(selectedTourSchedule.currentlyAssignedGuideIds)) return [];
         return selectedTourSchedule.currentlyAssignedGuideIds
             .map(id => allTourGuides.find(g => g.id === id)?.name)
             .filter(Boolean);
     };
 
-    // Memoize the list of guides available for assignment to prevent re-filtering on every render
+    // Memoize the list of guides available for assignment
     const availableGuidesForAssignment = useMemo(() => {
         if (!selectedTourSchedule || !allTourGuides.length) return [];
         const currentlyAssignedIds = selectedTourSchedule.currentlyAssignedGuideIds || [];
@@ -247,6 +276,9 @@ const AssignTours = () => {
 
     return (
         <div className="container mx-auto p-4 md:p-6 bg-gray-100 min-h-screen">
+            <ToastContainer
+                position="top-right" autoClose={3500} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="colored"
+            />
             <div className="mb-6 flex justify-between items-center">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Tour Schedule & Guide Assignment</h1>
             </div>
@@ -274,7 +306,7 @@ const AssignTours = () => {
                     open={isAssignModalVisible}
                     onCancel={handleHideAssignModal}
                     width={650}
-                    destroyOnClose
+                    destroyOnClose // Destroys modal children when closed, useful for resetting state in Select
                     footer={[
                         <Button key="cancel" onClick={handleHideAssignModal} className="hover:bg-gray-200 transition-colors duration-200">
                             Cancel
@@ -284,7 +316,7 @@ const AssignTours = () => {
                             type="primary"
                             onClick={handleAssignGuides}
                             loading={loading}
-                            icon={<UserOutlined />} // Or <PlusCircleOutlined /> if more appropriate for "add"
+                            icon={<UserOutlined />}
                             className="bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
                         >
                             Save Assignments
@@ -302,8 +334,9 @@ const AssignTours = () => {
                                 <p><CalendarOutlined className="mr-1 text-green-500" /> <strong className="font-medium text-gray-600">Departure:</strong> {selectedTourSchedule.startDate ? selectedTourSchedule.startDate.format('MMM DD, YYYY HH:mm') : 'N/A'}</p>
                                 <p><CalendarOutlined className="mr-1 text-red-500" /> <strong className="font-medium text-gray-600">Return:</strong> {selectedTourSchedule.endDate ? selectedTourSchedule.endDate.format('MMM DD, YYYY HH:mm') : 'N/A'}</p>
                                 <p><DollarCircleOutlined className="mr-1 text-yellow-500" /> <strong className="font-medium text-gray-600">Price:</strong> {(selectedTourSchedule.parentTour.price !== null && selectedTourSchedule.parentTour.price !== undefined) ? `$${Number(selectedTourSchedule.parentTour.price).toFixed(2)}` : 'N/A'}</p>
-                                {selectedTourSchedule.parentTour.destinations && selectedTourSchedule.parentTour.destinations.length > 0 && (
-                                    <p className="sm:col-span-2"><GlobalOutlined className="mr-1 text-purple-500" /> <strong className="font-medium text-gray-600">Destinations:</strong> {selectedTourSchedule.parentTour.destinations.map(d => d.name).join(', ')}</p>
+                                {/* Use selectedTourSchedule.destinations directly */}
+                                {selectedTourSchedule.destinations && selectedTourSchedule.destinations.length > 0 && (
+                                    <p className="sm:col-span-2"><GlobalOutlined className="mr-1 text-purple-500" /> <strong className="font-medium text-gray-600">Destinations:</strong> {selectedTourSchedule.destinations.map(d => d.name).join(', ')}</p>
                                 )}
                             </div>
                         </div>
@@ -339,7 +372,8 @@ const AssignTours = () => {
                                 onChange={handleGuideSelectionChange}
                                 value={guidesToAssign} // Tracks ONLY newly selected guides
                                 allowClear
-                                loading={allTourGuides.length === 0 && loading && !selectedTourSchedule} // Be more specific with loading
+                                // More specific loading for the Select dropdown
+                                loading={allTourGuides.length === 0 && loading}
                                 filterOption={(input, option) =>
                                     option.children.toLowerCase().includes(input.toLowerCase())
                                 }
@@ -350,15 +384,17 @@ const AssignTours = () => {
                                     </div>
                                 )}
                             >
-                                {/* Options are now from the filtered list */}
                                 {availableGuidesForAssignment.map((guide) => (
                                     <Option key={guide.id} value={guide.id} label={guide.name} customdata={{ position: guide.position }}>
                                         {guide.name}
                                     </Option>
                                 ))}
                             </Select>
-                            {availableGuidesForAssignment.length === 0 && selectedTourSchedule && (
-                                <p className="text-xs text-gray-500 mt-2 italic">All available tour guides are already assigned to this schedule or no other guides are available.</p>
+                            {availableGuidesForAssignment.length === 0 && selectedTourSchedule && allTourGuides.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-2 italic">All available tour guides are already assigned to this schedule.</p>
+                            )}
+                            {allTourGuides.length === 0 && !loading && (
+                                <p className="text-xs text-red-500 mt-2 italic">No tour guides available in the system.</p>
                             )}
                             <p className="text-xs text-gray-500 mt-2">
                                 Only guides not already assigned to this schedule are shown. Selected guides here will be added.
@@ -367,10 +403,6 @@ const AssignTours = () => {
                     </div>
                 </Modal>
             )}
-
-            <ToastContainer
-                position="top-right" autoClose={3500} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="colored"
-            />
         </div>
     );
 };
